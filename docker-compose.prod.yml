@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-digital_finance}
+      POSTGRES_USER: ${POSTGRES_USER:-dfuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dfpass123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../digital-finance-services/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dfuser} -d ${POSTGRES_DB:-digital_finance}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  go-backend:
+    build:
+      context: ../digital-finance-services
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-dfuser}:${POSTGRES_PASSWORD:-dfpass123}@postgres:5432/${POSTGRES_DB:-digital_finance}?sslmode=disable
+      REDIS_URL: redis:6379
+      AI_SERVICE_URL: http://ai-service:16081
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: "16080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ai-service:
+    build:
+      context: ../digital-finance-services/ai-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-openai}
+      MODEL_NAME: ${MODEL_NAME:-gpt-4o-mini}
+      API_KEY: ${API_KEY}
+    depends_on:
+      - go-backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    build: ./nginx
+    restart: unless-stopped
+    ports:
+      - "16000:80"
+    depends_on:
+      - go-backend
+      - ai-service
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
