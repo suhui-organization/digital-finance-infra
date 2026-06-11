@@ -1,0 +1,38 @@
+# =============================================================================
+# 管理后台部署 (Admin Frontend)
+# 镜像来源: 华为云 SWR (容器镜像服务)
+# 前提: 基础服务已部署 (docker-compose.yml — 含 Nginx Gateway)
+# 使用方式: docker compose -f docker-compose.admin.yml up -d
+# =============================================================================
+version: "3.8"
+
+services:
+  # ---------- 管理后台 ----------
+  admin:
+    image: swr.ap-southeast-3.myhuaweicloud.com/digital-finance-commercial/admin:${TAG:-latest}
+    env_file:
+      - .env
+    container_name: df-admin
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_PORT:-16010}:16010"
+    environment:
+      NODE_ENV: production
+      PORT: "16010"
+      HOSTNAME: "0.0.0.0"
+      # 通过 Nginx Gateway (nginx:80) 统一访问后端服务
+      # Nginx Gateway 由主 docker-compose.yml 独立部署，不在此处重复定义
+      API_GATEWAY_URL: "http://nginx:80"
+      # 浏览器使用相对路径 /api/ 和 /ai/ 即可，无需设置 NEXT_PUBLIC_API_BASE_URL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - df-network
+
+networks:
+  df-network:
+    name: digital-finance-network
+    external: true

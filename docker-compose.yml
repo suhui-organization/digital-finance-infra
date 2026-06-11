@@ -1,18 +1,58 @@
 # =============================================================================
-# digital-finance-infra (Nginx 反向代理) 独立部署文件
-# 镜像来源: SWR (华为云容器镜像服务)
-# 依赖: go-backend + ai-service 已就绪 (通过 external network 通信)
+# 数字金融彩票 — 全量生产部署
+# 镜像来源: 华为云 SWR (容器镜像服务)
+# 使用方式: docker compose up -d
 #
-# 部署顺序:
-#   1. digital-finance-services/docker-compose.yml  (postgres + redis + go-backend)
-#   2. digital-finance-services/ai-service/docker-compose.yml  (ai-service)
-#   3. 本文件 (nginx) — 作为统一入口
-#   4. digital-finance-admin/docker-compose.yml    (可选)
-#   5. digital-finance-mobile/docker-compose.yml   (可选)
+# 路由:
+#   http://16000/api/*   → go-backend:16080
+#   http://16000/ai/*    → ai-service:16081
 # =============================================================================
 version: "3.8"
 
 services:
+  # ---------- 数据库 ----------
+  postgres:
+    image: postgres:16-alpine
+    container_name: df-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-digital_finance}
+      POSTGRES_USER: ${POSTGRES_USER:-dfuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dfpass123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dfuser} -d ${POSTGRES_DB:-digital_finance}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - df-network
+
+  # ---------- 缓存 ----------
+  redis:
+    image: redis:7-alpine
+    container_name: df-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - df-network
+
+  # ---------- Nginx API 反向代理 ----------
   nginx:
     image: swr.ap-southeast-3.myhuaweicloud.com/digital-finance-commercial/nginx:${TAG:-latest}
     container_name: df-nginx
@@ -30,29 +70,11 @@ services:
     networks:
       - df-network
 
-  # go-backend 和 ai-service 以 sidecar 方式引用已部署的服务
-  # 注意: 这些 sidecar 定义使用相同的 SWR 镜像但仅用于依赖声明（不实际启动）
-  go-backend:
-    image: swr.ap-southeast-3.myhuaweicloud.com/digital-finance-commercial/go-backend:${TAG:-latest}
-    container_name: df-go-backend-sidecar
-    restart: "no"
-    command: ["echo", "sidecar-only — managed by digital-finance-services compose"]
-    logging:
-      driver: none
-    networks:
-      - df-network
-
-  ai-service:
-    image: swr.ap-southeast-3.myhuaweicloud.com/digital-finance-commercial/ai-service:${TAG:-latest}
-    container_name: df-ai-service-sidecar
-    restart: "no"
-    command: ["echo", "sidecar-only — managed by ai-service compose"]
-    logging:
-      driver: none
-    networks:
-      - df-network
+volumes:
+  postgres_data:
+    name: df-postgres-data
 
 networks:
   df-network:
     name: digital-finance-network
-    external: true
+    driver: bridge

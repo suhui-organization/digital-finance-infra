@@ -1,0 +1,49 @@
+# =============================================================================
+# Cline Rules — digital-finance-infra (基础设施)
+# Nginx API 反向代理 + Docker Compose 编排
+# =============================================================================
+
+## 技术栈
+- 反向代理: Nginx
+- 容器编排: Docker Compose
+- 部署环境: 华为云 SWR 容器镜像服务
+- 网络: digital-finance-network (bridge)
+
+## 文件结构
+```
+digital-finance-infra/
+  nginx/
+    nginx.conf                  # Nginx 主配置
+  docker-compose.yml            # 全量部署 (postgres+redis+go-backend+ai-service+nginx)
+  scripts/                      # 前端部署脚本
+    docker-compose.admin.yml    # 管理后台
+    docker-compose.mobile.yml   # 移动端前端
+    .env.example                # 环境变量模板
+```
+
+## Nginx 规范
+- Nginx **只代理后端 API**，不做前端代理
+- 使用 Docker 容器名通信 (go-backend, ai-service)，**禁止硬编码 IP**
+- 配置 CORS 允许 admin(16010) 和 mobile(16020) 跨域访问
+- 安全头: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection
+
+## Docker Compose 规范
+- 服务命名: df- 前缀 (df-nginx, df-go-backend 等)
+- 镜像: 生产环境使用 SWR 镜像
+- 日志: json-file driver, max-size: 10m, max-file: 3
+- 健康检查: 所有核心服务必须配置 healthcheck
+- 网络: 统一 digital-finance-network，由 docker-compose.yml 创建
+
+## 端口规划
+- 16000: Nginx (API 网关，对外)
+- 16010: Admin 前端 (对外)
+- 16020: Mobile 前端 (对外)
+- 16080: Go 后端 API (内部)
+- 16081: AI Service (内部)
+
+## Cline 行为规则
+- 修改 Nginx 配置后运行 `docker compose exec nginx nginx -t` 检查
+- 修改 docker-compose 后运行 `docker compose config` 验证
+- 环境变量变更需同步更新 scripts/.env.example
+- 新增部署脚本需同步更新 AGENTS.md
+- 不要硬编码敏感信息
