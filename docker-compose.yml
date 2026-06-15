@@ -4,6 +4,9 @@
 # 应用服务（go-backend / ai-service / admin / mobile）在各子工程独立编排
 # 镜像来源: 华为云 SWR (容器镜像服务)
 # 使用方式: docker compose up -d
+# 数字金融彩票 — 基础中间件（Infra）
+# 职责范围: 仅管理数据库、缓存等基础设施服务
+# 不含任何应用服务（go-backend/nginx/ai-service 等）
 # =============================================================================
 version: "3.8"
 
@@ -19,6 +22,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dfpass123}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ../digital-finance-services/migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dfuser} -d ${POSTGRES_DB:-digital_finance}"]
       interval: 10s
