@@ -10,8 +10,6 @@ services:
   # ---------- 管理后台 ----------
   admin:
     image: swr.ap-southeast-3.myhuaweicloud.com/digital-finance-commercial/admin:${TAG:-latest}
-    env_file:
-      - .env
     container_name: df-admin
     restart: unless-stopped
     ports:

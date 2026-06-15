@@ -19,8 +19,12 @@ SERVER_DIR="/opt/digital-finance"
 # --- 复制 scripts/ 目录 (前端部署文件) ---
 # scp -r ./* ${SERVER_USER}@${SERVER_IP}:${SERVER_DIR}/scripts/
 
-# --- 复制根 compose 文件 (后端 + Nginx) ---
+# --- 复制根 compose 文件 (基础服务: postgres + redis + nginx) ---
 # scp ../docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${SERVER_DIR}/
+
+# --- 复制应用服务 compose (go-backend / ai-service) ---
+# scp ../../digital-finance-services/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:/opt/digital-finance-services/
+# scp ../../digital-finance-ai-service/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:/opt/digital-finance-ai-service/
 
 
 # ======================== 第二步: 服务器上操作 ========================
@@ -42,28 +46,36 @@ SERVER_DIR="/opt/digital-finance"
 # 3. 登录华为云 SWR (首次部署需要)
 # docker login swr.ap-southeast-3.myhuaweicloud.com
 
-# 4. 部署后端基础服务 + Nginx (postgres + redis + go-backend + ai-service + nginx)
+# 4. 部署基础服务 (postgres + redis + nginx)
 # docker compose up -d
 
-# 5. 等待后端就绪，部署前端 (独立端口访问)
-# cd scripts
+# 5. 部署应用服务 (go-backend / ai-service)
+# cd /opt/digital-finance-services && docker compose up -d
+# cd /opt/digital-finance-ai-service && docker compose up -d
+
+# 6. 等待应用就绪，部署前端 (独立端口访问)
+# cd /opt/digital-finance/scripts
 # docker compose -f docker-compose.admin.yml up -d
 # docker compose -f docker-compose.mobile.yml up -d
 
-# 6. 检查所有服务状态
+# 7. 检查所有服务状态
 # cd /opt/digital-finance
 # docker compose -f docker-compose.yml -f scripts/docker-compose.admin.yml -f scripts/docker-compose.mobile.yml ps
 
 
 # ======================== 服务器文件结构 ========================
 
-# /opt/digital-finance/                  # 工作根目录
-# ├── docker-compose.yml                 # 基础服务 (postgres+redis+go-backend+ai-service+nginx)
+# /opt/digital-finance/                  # 工作根目录 (infra)
+# ├── docker-compose.yml                 # 基础服务 (postgres + redis + nginx)
 # └── scripts/                           # 前端部署脚本
 #     ├── .env                           # 环境变量 (从 .env.example 复制后修改)
 #     ├── .env.example                   # 环境变量模板
 #     ├── docker-compose.admin.yml       # 管理后台 (独立端口 16010)
 #     └── docker-compose.mobile.yml      # 移动端前端 (独立端口 16020)
+# /opt/digital-finance-services/         # Go 后端 (独立部署)
+# └── docker-compose.yml                 # go-backend 应用服务
+# /opt/digital-finance-ai-service/       # AI 服务 (独立部署)
+# └── docker-compose.yml                 # ai-service 应用服务
 
 
 # ======================== 架构说明 ========================
@@ -99,9 +111,11 @@ SERVER_DIR="/opt/digital-finance"
 # ======================== 更新部署 ========================
 
 # 更新镜像并重启:
-# TAG=v1.2.3 docker compose up -d --force-recreate
-# cd scripts && TAG=v1.2.3 docker compose -f docker-compose.admin.yml up -d --force-recreate
-# cd scripts && TAG=v1.2.3 docker compose -f docker-compose.mobile.yml up -d --force-recreate
+# TAG=v1.2.3 docker compose up -d --force-recreate                      # 基础服务
+# cd /opt/digital-finance-services && TAG=v1.2.3 docker compose up -d --force-recreate  # Go 后端
+# cd /opt/digital-finance-ai-service && TAG=v1.2.3 docker compose up -d --force-recreate  # AI 服务
+# cd /opt/digital-finance/scripts && TAG=v1.2.3 docker compose -f docker-compose.admin.yml up -d --force-recreate
+# cd /opt/digital-finance/scripts && TAG=v1.2.3 docker compose -f docker-compose.mobile.yml up -d --force-recreate
 
 # 或修改 .env 中的 TAG 值，然后:
 # docker compose pull

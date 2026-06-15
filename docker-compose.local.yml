@@ -1,9 +1,9 @@
 # =============================================================================
-# 数字金融彩票 — 基础服务（infrastructure）
+# 数字金融彩票 — 本地基础服务部署 (从源码构建)
 # 只管理 postgres / redis / nginx，不包含任何应用服务
 # 应用服务（go-backend / ai-service / admin / mobile）在各子工程独立编排
-# 镜像来源: 华为云 SWR (容器镜像服务)
-# 使用方式: docker compose up -d
+# 构建: docker compose -f docker-compose.local.yml build
+# 启动: docker compose -f docker-compose.local.yml up -d
 # =============================================================================
 version: "3.8"
 
@@ -50,11 +50,12 @@ services:
     networks:
       - df-network
 
-  # ---------- Nginx API 反向代理 ----------
-  # 将 /api/* → go-backend:16080, /ai/* → ai-service:16081
-  # 应用服务由各自工程的 compose 独立启动，加入同一 network 即可被 Nginx 发现
+  # ---------- Nginx API 网关 (本地构建) ----------
   nginx:
-    image: swr.ap-southeast-3.myhuaweicloud.com/digital-finance-commercial/nginx:${TAG:-latest}
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: df-nginx:local
     container_name: df-nginx
     restart: unless-stopped
     ports:
@@ -74,4 +75,4 @@ volumes:
 networks:
   df-network:
     name: digital-finance-network
-    driver: bridge
+    external: true

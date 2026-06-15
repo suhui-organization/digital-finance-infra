@@ -10,8 +10,6 @@ services:
   # ---------- 移动端前端 ----------
   mobile:
     image: swr.ap-southeast-3.myhuaweicloud.com/digital-finance-commercial/mobile:${TAG:-latest}
-    env_file:
-      - .env
     container_name: df-mobile
     restart: unless-stopped
     ports:
