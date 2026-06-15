@@ -57,6 +57,7 @@ jobs:
             ${{ steps.meta.outputs.sha_tag }}
             ${{ steps.meta.outputs.latest_tag }}
           cache-from: type=gha
+          provenance: false
           cache-to: type=gha,mode=max
 
   deploy:
